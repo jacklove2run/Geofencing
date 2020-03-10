@@ -7,13 +7,14 @@ import * as TaskManager from 'expo-task-manager';
 import React from 'react';
 import axios from 'axios';
 
-const GEOFENCING_TASK = 'background-location-task';
+//const GEOFENCING_TASK = 'background-location-task';
 const regions = [{
-    'latitude': 38.6518,
-    'longitude': 104.07642,
-    'radius': 100,
-    'notifyOnEnter': true,
-    'notifyOnExit': true
+    identifier: "origin",
+    latitude: 32.89047,
+    longitude: 115.81450,
+    radius: 600,
+    notifyOnEnter: true,
+    notifyOnExit: true
   }];
 
 async function report() {
@@ -27,48 +28,53 @@ async function report() {
   }
 }
 
+//Grant the Permissions
 async function getLocationAsync() {
   let { status } = await Permissions.askAsync(Permissions.LOCATION);
   console.log(status);
   if (status !== 'granted') {
+    console.log('Granting location permissions failed');
     return;
   } else {
-    alert('Permissions granted');
+    console.log('Granting location permissions success');
     return;
   }
-  let { location } = await Location.getCurrentPositionAsync({}); //This code doesn't work on my device.
-  console.log('location ' + JSON.stringify(location));
+  //testing code
+  let location = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.High});
+  console.log('locationaa ' + JSON.stringify(location));
 }
 
+//testing code
 async function checkStatus() {
-  let tasks = await TaskManager.getRegisteredTasksAsync(GEOFENCING_TASK);
+  let tasks = await TaskManager.getRegisteredTasksAsync();
   console.log('registered tasks: ' + JSON.stringify(tasks));
   let enable = await Location.hasServicesEnabledAsync();
   console.log('services enable: ' + JSON.stringify(enable));
-  let last_location = await Location.getProviderStatusAsync();
+  let last_location = await Location.getLastKnownPositionAsync();
   console.log('last_location: ' + JSON.stringify(last_location));
-  let started = await Location.hasStartedGeofencingAsync(GEOFENCING_TASK);
+  let started = await Location.hasStartedGeofencingAsync('GEOFENCING_TASK');
   console.log(started);
+  let options = await TaskManager.isTaskRegisteredAsync('GEOFENCING_TASK');
+  console.log(options);
+  //let unregister = await TaskManager.unregisterTaskAsync('background-location-task');
+  //console.log(unregister);
 }
 
-function registerBackgroundTask() {
-  // Please follow this document to implement the background task
-  // https://docs.expo.io/versions/latest/sdk/location/#geofencing-methods
-  console.log("TODO: register background task for geoFencing, when device is in GPS range, call service API");
-  getLocationAsync();
-  try {
-    Location.startGeofencingAsync(GEOFENCING_TASK, regions);
-  } catch(error) {
-    console.log(error);
-  }
-  checkStatus();
-}
-
-TaskManager.defineTask(GEOFENCING_TASK, ({ data: { eventType, region }, error }) => {
+TaskManager.defineTask('GEO_LOCATION_UPDATE', ({ data: { locations }, error }) => {
   if (error) {
     console.log(error);
     return;
   }
+  console.log(locations);
+});
+
+
+TaskManager.defineTask('GEOFENCING_TASK', ({ data: { eventType, region }, error }) => {
+  if (error) {
+    console.log(error);
+    return;
+  }
+  console.log(eventType);
   if (eventType === Location.GeofencingEventType.Enter) {
     report();
     console.log("You've entered region:", region);
@@ -78,6 +84,21 @@ TaskManager.defineTask(GEOFENCING_TASK, ({ data: { eventType, region }, error })
 });
 
 
+function registerBackgroundTask() {
+  getLocationAsync();
+  try {
+    Location.startLocationUpdatesAsync('GEO_LOCATION_UPDATE', {
+        accuracy: 4,
+        timeInterval: (1000 * 20),
+        distanceInterval: 100,
+      });
+    //Location.startLocationUpdatesAsync('GEOFENCING_TASK', {'accuracy': Location.Accuracy.High, 'timeInterval': 1000});
+    Location.startGeofencingAsync('GEOFENCING_TASK', regions);
+  } catch(error) {
+    console.log(error);
+  }
+  //checkStatus();  //testing code
+}
 
 
 
